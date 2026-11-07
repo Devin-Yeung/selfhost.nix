@@ -3,9 +3,6 @@
   self,
   smoke,
 }:
-# Boots a VM with modules/observability enabled, then runs the observability
-# scenario inside it. The scenario uses the module's loopback ports, so no
-# firewall or network setup is needed.
 pkgs.testers.runNixOSTest {
   name = "selfhost-smoke-observability";
 
@@ -15,7 +12,7 @@ pkgs.testers.runNixOSTest {
     virtualisation.memorySize = 2048;
   };
 
-  testScript = ''
+  testScript = /* python */ ''
     machine.wait_for_unit("victoriametrics.service")
     machine.wait_for_unit("victoriatraces.service")
     machine.wait_for_unit("vector.service")
@@ -32,5 +29,13 @@ pkgs.testers.runNixOSTest {
         " -victoriatraces http://127.0.0.1:10428"
         " -timeout 2m"
     )
+
+    machine.succeed("test -z \"$(systemctl --failed --no-legend)\"")
+    for unit in ["victoriametrics", "victoriatraces", "victorialogs", "vector", "grafana"]:
+        errors = machine.succeed(
+            f"journalctl -u {unit}.service -p err -o cat --no-pager"
+            " | grep -v '^-- No entries --$' || true"
+        )
+        assert errors.strip() == "", f"{unit}.service logged errors:\n{errors}"
   '';
 }
