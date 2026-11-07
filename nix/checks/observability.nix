@@ -21,7 +21,9 @@ pkgs.testers.runNixOSTest {
     machine.wait_for_unit("vector.service")
     machine.wait_for_unit("grafana.service")
     machine.wait_for_open_port(4318)  # Vector OTLP/HTTP
-    machine.wait_for_open_port(3000)  # Grafana
+    # Grafana: check health, not just the port. A crash-looping Grafana can
+    # leave the port closed forever, so bound this wait instead of hanging.
+    machine.wait_until_succeeds("curl -fs http://127.0.0.1:3000/api/health", timeout=120)
 
     machine.succeed(
         "${smoke}/bin/selfhost-smoke observability"

@@ -356,8 +356,12 @@ in
       };
       script = ''
         keyFile=${lib.escapeShellArg (toString cfg.grafana.secretKeyFile)}
+        keyDir="$(dirname "$keyFile")"
+        install -d -m 0750 "$keyDir"
+        # Grafana must be able to enter the directory, not only read the file.
+        # The directory keeps root as owner and grants the grafana group traverse (0750).
+        chgrp ${grafanaGroup} "$keyDir"
         if [ ! -s "$keyFile" ]; then
-          install -d -m 0750 "$(dirname "$keyFile")"
           head -c 32 /dev/urandom | base64 -w0 > "$keyFile"
         fi
         # Re-applied on every start, so an existing key also gets fixed.
